@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Strawberry Orbit | Insanity Edition</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
+<style>
+
+*{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select: none; }
+
+body{
+overflow:hidden;
+background:#050208;
+font-family:'Rajdhani', sans-serif;
+height:100vh;
+width:100vw;
+cursor: none;
+}
+
+#game{
+position:relative;
+width:100vw;
+height:100vh;
+overflow:hidden;
+/* رنگ‌ها توسط جاوااسکریپت تغییر می‌کنند */
+background: 
+radial-gradient(circle at 20% 80%, var(--nebula-1) 0%, transparent 50%),
+radial-gradient(circle at 80% 20%, var(--nebula-2) 0%, transparent 50%),
+radial-gradient(circle at center, #0a0015 0%, #020204 100%);
+transition: background 3s ease;
+}
+
+.vignette {
+position:absolute; inset:0;
+box-shadow: inset 0 0 250px rgba(0,0,0,0.9);
+z-index:2; pointer-events:none; transition: box-shadow 0.5s ease;
+}
+.vignette.panic { animation: heartbeat 1s infinite ease-in-out; }
+@keyframes heartbeat {
+0%, 100% { box-shadow: inset 0 0 150px rgba(0,0,0,0.9), inset 0 0 50px rgba(255,0,0,0); }
+50% { box-shadow: inset 0 0 150px rgba(0,0,0,0.9), inset 0 0 80px rgba(255,0,0,0.4); }
+}
+
+#flash { position:absolute; inset:0; background:rgba(255, 0, 100, 0.3); z-index:3; pointer-events:none; opacity:0; }
+
+/* افکت زوم و بهم ریختگی رنگ هنگام کلیک درست */
+#game.warp-hit { animation: warp 0.2s ease-out; }
+@keyframes warp {
+0% { filter: contrast(1.5) saturate(2) hue-rotate(30deg); transform: scale(1.02); }
+100% { filter: none; transform: scale(1); }
+}
+
+#bg-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none; }
+
+#custom-cursor {
+position: fixed; width: 20px; height: 20px;
+border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%;
+pointer-events: none; z-index: 10000; transform: translate(-50%, -50%);
+box-shadow: 0 0 15px rgba(255, 0, 100, 0.6), inset 0 0 10px rgba(255, 0, 100, 0.4);
+transition: width 0.1s, height 0.1s, border-color 0.2s, box-shadow 0.2s;
+}
+#custom-cursor.clicking { width: 40px; height: 40px; border-color: #ff0055; }
+#custom-cursor.power-hover { border-color: #ffd700; box-shadow: 0 0 30px #ffd700, inset 0 0 15px #ffd700; }
+
+.ui-layer { position: absolute; inset:0; z-index:10; pointer-events:none; }
+.hud-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 30px; width: 100%; box-sizing: border-box; }
+.score-box, .highscore-box {
+color:white; font-size:18px; font-weight:700; letter-spacing:1px; text-shadow:0 0 10px #ff0055;
+background:rgba(10, 0, 20, 0.8); padding:10px 25px; border-radius:50px;
+border:1px solid rgba(255, 0, 100, 0.2); backdrop-filter:blur(15px);
+pointer-events:auto; display:flex; align-items:center; gap:8px;
+}
+.score-box span { font-size:28px; color:#ff3377; }
+.highscore-box span { font-size:22px; color:#ffd700; text-shadow: 0 0 10px #ffd700;}
+
+.combo-text {
+position: absolute; font-family: 'Bungee Shade', cursive; font-size: 30px;
+pointer-events: none; z-index: 600; animation: floatUp 0.8s ease-out forwards;
+}
+@keyframes floatUp {
+0% { transform: translateY(0) scale(0.5); opacity: 0; filter: blur(5px); }
+20% { transform: translateY(-10px) scale(1.2); opacity: 1; filter: blur(0); }
+100% { transform: translateY(-80px) scale(1); opacity: 0; }
+}
+.glitch-active { animation: glitch-anim 0.3s linear; }
+@keyframes glitch-anim {
+0% { transform: translate(0); filter: hue-rotate(0deg); }
+20% { transform: translate(-5px, 5px); filter: hue-rotate(90deg); }
+40% { transform: translate(-5px, -5px); filter: hue-rotate(180deg); }
+60% { transform: translate(5px, 5px); filter: hue-rotate(270deg); }
+80% { transform: translate(5px, -5px); filter: hue-rotate(360deg); }
+100% { transform: translate(0); filter: hue-rotate(0deg); }
+}
+.shockwave { position: absolute; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%; pointer-events: none; z-index: 50; animation: expandWave 0.6s ease-out forwards; }
+@keyframes expandWave { 0% { width: 10px; height: 10px; opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { width: 200px; height: 200px; opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+#level-up { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-family: 'Bungee Shade', cursive; font-size: 60px; color: #00e5ff; text-shadow: 0 0 40px #00e5ff; z-index: 1000; pointer-events: none; opacity: 0; }
+
+/* کریستال و توت طلایی */
+.crystal, .golden-strawberry {
+position: absolute; width: 50px; height: 50px; cursor: none; z-index: 200; pointer-events: auto;
+filter: drop-shadow(0 0 20px var(--glow-color)) drop-shadow(0 0 40px var(--glow-color));
+}
+.crystal { --glow-color: #00e5ff; animation: float-crystal 3s ease-in-out infinite; }
+.golden-strawberry { --glow-color: #ffd700; width: 80px; height: 80px; animation: pulse-gold 0.5s ease-in-out infinite alternate; }
+.crystal svg, .golden-strawberry svg { width: 100%; height: 100%; overflow:visible; }
+
+@keyframes float-crystal { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-15px) rotate(180deg); } }
+@keyframes pulse-gold { from { transform: scale(1); filter: drop-shadow(0 0 20px #ffd700) drop-shadow(0 0 40px #ffd700) brightness(1); } to { transform: scale(1.1); filter: drop-shadow(0 0 30px #fff) drop-shadow(0 0 60px #ffd700) brightness(1.3); } }
+
+.fade-out { animation: crystal-burst 0.5s forwards !important; }
+@keyframes crystal-burst { to { transform: scale(2); opacity: 0; filter: blur(10px); } }
+
+.strawberry{
+position:absolute; width:90px; height:90px; cursor: none;
+transition: left var(--move-speed) cubic-bezier(0.25, 0.1, 0.25, 1), 
+            top var(--move-speed) cubic-bezier(0.25, 0.1, 0.25, 1),
+            transform 0.2s ease, filter 0.3s ease;
+filter: drop-shadow(0 0 12px rgba(255,0,100,0.7)) drop-shadow(0 0 25px rgba(255,0,100,0.3));
+z-index:100; will-change: left, top, filter, transform; animation: breathe 3s ease-in-out infinite;
+}
+@keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+.strawberry.moving { animation: none; filter: blur(2px) drop-shadow(0 0 20px rgba(255,0,100,1)) drop-shadow(0 0 40px rgba(255,0,100,0.6)); }
+.strawberry:hover { filter: drop-shadow(0 0 25px rgba(255,0,100,1)) drop-shadow(0 0 50px rgba(255,0,100,0.6)) brightness(1.3) !important; }
+.strawberry.fake-explode { pointer-events: none; transition: transform 0.5s, filter 0.5s; transform: scale(0) rotate(180deg) !important; filter: blur(10px) brightness(2) !important; }
+
+svg{ width:100%; height:100%; overflow:visible; }
+.trail-dot{ position:absolute; border-radius:50%; pointer-events:none; z-index:50; background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(255,0,100,0.6) 40%, transparent 70%); box-shadow: 0 0 10px #ff0066; }
+.particle{ position:absolute; border-radius:50%; pointer-events:none; z-index:500; }
+
+#gameover{ position:absolute; inset:0; background:rgba(5, 2, 8, 0.95); display:none; justify-content:center; align-items:center; flex-direction:column; color:white; z-index:9999; backdrop-filter:blur(15px); }
+#gameover h1{ font-family:'Bungee Shade', cursive; font-size:65px; margin-bottom:10px; color:#ff0055; text-shadow: 0 0 50px rgba(255, 0, 85, 0.8); animation: pulse-text 1.5s infinite alternate; }
+@keyframes pulse-text { from { transform: scale(1); } to { transform: scale(1.05); } }
+#gameover p{ font-size:30px; margin-bottom:10px; color:#ccc; font-weight:700; }
+#gameover .hs-text { font-size: 24px; color: #ffd700; margin-bottom: 40px; text-shadow: 0 0 15px #ffd700; }
+
+button{ padding:18px 50px; border:2px solid #ff0055; border-radius:50px; font-size:22px; font-family:'Rajdhani', sans-serif; font-weight:700; letter-spacing:1px; background:transparent; color:#ff0055; cursor: none; box-shadow:0 0 25px rgba(255,0,100,0.3), inset 0 0 15px rgba(255,0,100,0.1); transition:all 0.3s ease; text-transform:uppercase; }
+button:hover { background:#ff0055; color:white; box-shadow:0 0 50px #ff0055; transform:scale(1.05); }
+@keyframes shake { 0%, 100% { transform: translate(0); } 10%, 30%, 50%, 70%, 90% { transform: translate(-10px, 8px); } 20%, 40%, 60%, 80% { transform: translate(10px, -8px); } }
+.shake-it { animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both; }
+
+</style>
+</head>
+<body>
+
+<div id="custom-cursor"></div>
+
+<div id="game">
+<canvas id="bg-canvas"></canvas>
+<div class="vignette" id="vignette"></div>
+<div id="flash"></div>
+<div id="level-up">LEVEL UP</div>
+
+<div class="ui-layer">
+<div class="hud-top">
+    <div class="score-box">🍓 SCORE: <span id="score">0</span></div>
+    <div class="highscore-box">👑 BEST: <span id="highscore">0</span></div>
+</div>
+</div>
+
+<div id="gameover">
+<h1>GAME OVER</h1>
+<p>Final Score: <span id="final">0</span></p>
+<div class="hs-text">High Score: <span id="go-hs">0</span></div>
+<button onclick="restart()">Try Again</button>
+</div>
+</div>
+
+<script>
+
+// --- سیستم صوتی پیشرفته ---
+let audioCtx, droneOsc, droneGain, lfo, lfoGain;
+function initAudio() { 
+    if(!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        initDrone(); // شروع صدای بم
+    }
+}
+
+function initDrone() {
+    // صدای بم پس زمینه که با لول بالاتر میره
+    droneOsc = audioCtx.createOscillator();
+    droneGain = audioCtx.createGain();
+    lfo = audioCtx.createOscillator();
+    lfoGain = audioCtx.createGain();
+    
+    droneOsc.type = 'sine';
+    droneOsc.frequency.setValueAtTime(55, audioCtx.currentTime); // بم
+    
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(0.5, audioCtx.currentTime); // سرعت لرزش صدا
+    lfoGain.gain.setValueAtTime(10, audioCtx.currentTime);
+    
+    lfo.connect(lfoGain);
+    lfoGain.connect(droneOsc.frequency); // اتصال لرزش به فرکانس بم
+    
+    droneOsc.connect(droneGain);
+    droneGain.gain.setValueAtTime(0, audioCtx.currentTime); // در ابتدا بی صدا
+    droneGain.connect(audioCtx.destination);
+    
+    lfo.start();
+    droneOsc.start();
+}
+
+function updateDroneIntensity() {
+    if(!droneGain) return;
+    // افزایش صدا بر اساس لول (حداکثر 0.08 که آزاردهنده نیست)
+    let vol = Math.min(0.08, level * 0.008);
+    droneGain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 1);
+    // تغییر فرکانس بم
+    let freq = 55 + (level * 5);
+    droneOsc.frequency.linearRampToValueAtTime(freq, audioCtx.currentTime + 2);
+}
+
+function playSound(freq, type, dur, vol=0.3) {
+    if(!audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + dur/2);
+    g.gain.setValueAtTime(vol, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime + dur);
+}
+function playGood() { playSound(600, 'sine', 0.15, 0.4); setTimeout(()=>playSound(900, 'sine', 0.1, 0.2), 50); }
+function playBad() { playSound(150, 'sawtooth', 0.5, 0.5); if(droneGain) droneGain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.1); }
+function playCombo(c) { playSound(400 * c, 'sine', 0.2, 0.3); }
+function playPowerUp() { playSound(1200, 'sine', 0.3, 0.2); setTimeout(()=>playSound(1500, 'sine', 0.4, 0.2), 100); }
+function playGold() { playSound(800, 'triangle', 0.1, 0.3); setTimeout(()=>playSound(1200, 'triangle', 0.1, 0.3), 80); setTimeout(()=>playSound(1600, 'triangle', 0.3, 0.3), 160); }
+
+
+// --- متغیرهای اصلی ---
+const game = document.getElementById("game");
+const scoreEl = document.getElementById("score");
+const hsEl = document.getElementById("highscore");
+const canvas = document.getElementById('bg-canvas');
+const ctx = canvas.getContext('2d');
+const flashEl = document.getElementById("flash");
+const cursor = document.getElementById("custom-cursor");
+const levelUpEl = document.getElementById("level-up");
+const vignetteEl = document.getElementById("vignette");
+
+let score = 0, level = 1, highScore = parseInt(localStorage.getItem('strawberry_hs')) || 0;
+let strawberries = [], stars = [], powerUps = [];
+let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
+let mouseTrail = []; // ردپای موس
+let lastClickTime = 0, combo = 0;
+const COMBO_TIMEOUT = 3000;
+let slowMoActive = false, slowMoCharges = 0;
+
+hsEl.textContent = highScore;
+
+// تغییر رنگ فاز بازی
+function updatePhaseShift() {
+    if(level < 5) {
+        game.style.setProperty('--nebula-1', 'rgba(120, 0, 50, 0.15)');
+        game.style.setProperty('--nebula-2', 'rgba(50, 0, 120, 0.15)');
+    } else if(level < 10) {
+        game.style.setProperty('--nebula-1', 'rgba(150, 20, 0, 0.2)');
+        game.style.setProperty('--nebula-2', 'rgba(80, 0, 80, 0.2)');
+    } else {
+        // فاز خونی و خطرناک
+        game.style.setProperty('--nebula-1', 'rgba(200, 0, 0, 0.25)');
+        game.style.setProperty('--nebula-2', 'rgba(100, 0, 0, 0.2)');
+    }
+}
+
+// --- موس و ردپای نورانی ---
+document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX; mouseY = e.clientY;
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+    
+    // اضافه کردن به ردپا
+    mouseTrail.push({x: e.clientX, y: e.clientY, life: 1});
+    if(mouseTrail.length > 20) mouseTrail.shift();
+});
+document.addEventListener('mousedown', () => cursor.classList.add('clicking'));
+document.addEventListener('mouseup', () => cursor.classList.remove('clicking'));
+
+
+// --- کانواس و افکت‌های پس زمینه ---
+function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function initStars() {
+    stars = [];
+    for(let i=0; i<120; i++) {
+        let depth = Math.random() * 0.5 + 0.1; 
+        stars.push({
+            baseX: Math.random() * canvas.width, baseY: Math.random() * canvas.height,
+            radius: Math.random() * 1.5 * depth + 0.3, alpha: Math.random(),
+            speed: Math.random() * 0.015 + 0.003, depth: depth
+        });
+    }
+}
+
+function drawBackground() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    let cx = canvas.width / 2, cy = canvas.height / 2;
+    let moveX = (mouseX - cx) / cx, moveY = (mouseY - cy) / cy;
+
+    // رسم ردپای موس (کOMET)
+    mouseTrail.forEach((point, index) => {
+        point.life -= 0.05;
+        if(point.life <= 0) return;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, point.life * 4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 100, 150, ${point.life * 0.5})`;
+        ctx.fill();
+    });
+    // پاک کردن نقاط مرده
+    mouseTrail = mouseTrail.filter(p => p.life > 0);
+
+    // نور دنبال کننده موس
+    let gradient = ctx.createRadialGradient(mouseX, mouseY, 0, mouseX, mouseY, 300);
+    gradient.addColorStop(0, 'rgba(255, 0, 80, 0.1)');
+    gradient.addColorStop(1, 'transparent');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // ستاره های پارالاکس
+    stars.forEach(star => {
+        star.alpha += star.speed;
+        if (star.alpha > 1 || star.alpha < 0) star.speed *= -1;
+        let x = star.baseX - (moveX * 30 * star.depth);
+        let y = star.baseY - (moveY * 30 * star.depth);
+        ctx.beginPath();
+        ctx.arc(x, y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(star.alpha) * star.depth})`;
+        ctx.fill();
+    });
+    requestAnimationFrame(drawBackground);
+}
+
+initStars();
+drawBackground();
+
+// --- اس‌وی‌جی‌ها ---
+function strawberrySVG() {
+    return `<svg viewBox="0 0 100 100"><defs>
+        <radialGradient id="bodyGrad" cx="35%" cy="25%" r="60%"><stop offset="0%" stop-color="#ff8a80" /><stop offset="40%" stop-color="#ff1744" /><stop offset="100%" stop-color="#880e4f" /></radialGradient>
+        <radialGradient id="gloss" cx="40%" cy="20%" r="30%"><stop offset="0%" stop-color="rgba(255,255,255,0.6)" /><stop offset="100%" stop-color="transparent" /></radialGradient>
+        </defs>
+        <path fill="url(#bodyGrad)" d="M50 25 C80 15 95 45 82 65 L50 98 L18 65 C5 45 20 15 50 25Z"/>
+        <path fill="url(#gloss)" d="M50 25 C80 15 95 45 82 65 L50 98 L18 65 C5 45 20 15 50 25Z"/>
+        <g fill="rgba(255,255,255,0.3)"><circle cx="40" cy="45" r="1.5"/><circle cx="55" cy="42" r="1.5"/><circle cx="65" cy="55" r="1.5"/><circle cx="35" cy="58" r="1.5"/><circle cx="50" cy="65" r="1.5"/><circle cx="45" cy="80" r="1.5"/><circle cx="55" cy="78" r="1.5"/></g>
+        <path fill="#69f0ae" d="M50 25 L60 2 L52 18 L72 8 L55 28 L50 25 L45 28 L28 8 L48 18 L40 2 Z"/></svg>`;
+}
+
+function crystalSVG() {
+    return `<svg viewBox="0 0 100 100"><defs><radialGradient id="cryGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" /><stop offset="40%" stop-color="#00e5ff" /><stop offset="100%" stop-color="#006064" /></radialGradient></defs>
+        <path fill="url(#cryGrad)" stroke="#fff" stroke-width="2" d="M50 5 L85 40 L50 95 L15 40 Z" /><path fill="rgba(255,255,255,0.6)" d="M50 5 L70 40 L50 60 L30 40 Z" /></svg>`;
+}
+
+function goldenStrawberrySVG() {
+    return `<svg viewBox="0 0 100 100"><defs>
+        <radialGradient id="goldGrad" cx="35%" cy="25%" r="60%"><stop offset="0%" stop-color="#fff9c4" /><stop offset="40%" stop-color="#ffd700" /><stop offset="100%" stop-color="#ff6f00" /></radialGradient>
+        <radialGradient id="goldGloss" cx="40%" cy="20%" r="30%"><stop offset="0%" stop-color="rgba(255,255,255,0.9)" /><stop offset="100%" stop-color="transparent" /></radialGradient>
+        </defs>
+        <path fill="url(#goldGrad)" d="M50 25 C80 15 95 45 82 65 L50 98 L18 65 C5 45 20 15 50 25Z"/>
+        <path fill="url(#goldGloss)" d="M50 25 C80 15 95 45 82 65 L50 98 L18 65 C5 45 20 15 50 25Z"/>
+        <path fill="#76ff03" d="M50 25 L60 2 L52 18 L72 8 L55 28 L50 25 L45 28 L28 8 L48 18 L40 2 Z"/></svg>`;
+}
+
+function getMoveSpeed() { return slowMoActive ? '1.5s' : Math.max(0.35, 0.8 - (level * 0.03)) + 's'; }
+function updatePanicState() { strawberries.length > 6 ? vignetteEl.classList.add('panic') : vignetteEl.classList.remove('panic'); }
+
+// --- منطق بازی ---
+function createMain() {
+    let div = document.createElement("div"); div.className = "strawberry"; div.dataset.main = "true";
+    div.style.setProperty('--move-speed', getMoveSpeed());
+    position(div, true); div.innerHTML = strawberrySVG(); div.onclick = mainClick;
+    game.appendChild(div); strawberries.push(div); updatePanicState();
+}
+
+function spawnGoldenStrawberry() {
+    let div = document.createElement("div"); div.className = "golden-strawberry";
+    div.style.left = (Math.random() * (window.innerWidth - 120) + 40) + "px";
+    div.style.top = (Math.random() * (window.innerHeight - 160) + 100) + "px";
+    div.innerHTML = goldenStrawberrySVG(); div.onclick = collectGolden;
+    div.onmouseenter = () => cursor.classList.add('power-hover');
+    div.onmouseleave = () => cursor.classList.remove('power-hover');
+    game.appendChild(div); powerUps.push(div);
+    
+    setTimeout(() => { if(div.parentElement) { div.classList.add('fade-out'); setTimeout(() => div.remove(), 500); powerUps = powerUps.filter(p => p !== div); }}, 4000);
+}
+
+function collectGolden(e) {
+    e.stopPropagation(); initAudio(); playGold();
+    let el = e.currentTarget; let rect = el.getBoundingClientRect();
+    el.classList.add('fade-out'); setTimeout(() => el.remove(), 500);
+    powerUps = powerUps.filter(p => p !== el); cursor.classList.remove('power-hover');
+    
+    score += 10; scoreEl.textContent = score;
+    showComboText(rect.left + 40, rect.top, "+10 GOLD!", "#ffd700");
+    
+    // انفجار طلایی سکه ای
+    for(let i=0; i<20; i++) {
+        let p = document.createElement("div"); p.className = "particle";
+        let size = Math.random()*6+4; p.style.width=size+"px"; p.style.height=size+"px";
+        p.style.left = (rect.left+40 - size/2)+"px"; p.style.top = (rect.top+40 - size/2)+"px";
+        p.style.background = `radial-gradient(circle, #fff 20%, #ffd700 60%, transparent 100%)`;
+        p.style.boxShadow = '0 0 10px #ffd700'; p.style.borderRadius = '2px'; // مربعی مثل سکه
+        game.appendChild(p);
+        let dx = (Math.random()-0.5)*200, dy = Math.random()*100 + 50; // پرتاب به سمت پایین
+        p.animate([{ transform:'translate(0,0) rotate(0deg)', opacity:1 }, { transform:`translate(${dx}px, ${dy}px) rotate(360deg)`, opacity:0 }], { duration: 800, easing:'cubic-bezier(0.2, 0.8, 0.2, 1)', fill:'forwards' });
+        setTimeout(()=>p.remove(), 800);
+    }
+}
+
+function spawnCrystal() {
+    let div = document.createElement("div"); div.className = "crystal";
+    div.style.left = (Math.random() * (window.innerWidth - 100) + 50) + "px";
+    div.style.top = (Math.random() * (window.innerHeight - 150) + 100) + "px";
+    div.innerHTML = crystalSVG(); div.onclick = collectCrystal;
+    div.onmouseenter = () => cursor.classList.add('power-hover');
+    div.onmouseleave = () => cursor.classList.remove('power-hover');
+    game.appendChild(div); powerUps.push(div);
+    setTimeout(() => { if(div.parentElement) { div.classList.add('fade-out'); setTimeout(() => div.remove(), 500); powerUps = powerUps.filter(p => p !== div); }}, 6000);
+}
+
+function collectCrystal(e) {
+    e.stopPropagation(); initAudio(); playPowerUp();
+    let crystal = e.currentTarget; crystal.classList.add('fade-out'); setTimeout(() => crystal.remove(), 500);
+    powerUps = powerUps.filter(p => p !== crystal); cursor.classList.remove('power-hover');
+    
+    strawberries.forEach(s => { if(s.dataset.main !== "true") { s.classList.add('fake-explode'); setTimeout(() => s.remove(), 500); }});
+    setTimeout(() => { strawberries = strawberries.filter(s => s.dataset.main === "true"); updatePanicState(); }, 500);
+    
+    slowMoActive = true; slowMoCharges = 2;
+    strawberries.forEach(s => s.style.setProperty('--move-speed', getMoveSpeed()));
+    showComboText(e.clientX, e.clientY, "⏳ SLOW-MO", "#00e5ff");
+}
+
+function position(el, isFirstTime = false) {
+    let left = Math.random() * (window.innerWidth - 120) + 15;
+    let top = Math.random() * (window.innerHeight - 160) + 80;
+    if(isFirstTime) {
+        el.style.transition = 'none'; el.style.left = left + "px"; el.style.top = top + "px";
+        setTimeout(() => { el.style.transition = ''; el.style.setProperty('--move-speed', getMoveSpeed()); }, 50);
+    } else { el.style.left = left + "px"; el.style.top = top + "px"; }
+}
+
+function mainClick(e) {
+    e.stopPropagation(); initAudio();
+    let now = Date.now();
+    if (now - lastClickTime < COMBO_TIMEOUT) { combo++; playCombo(combo); } else { combo = 1; playGood(); }
+    lastClickTime = now;
+
+    let points = combo; score += points; scoreEl.textContent = score;
+    
+    // افکت زوم و بهم ریختگی رنگ
+    game.classList.remove('warp-hit'); void game.offsetWidth; game.classList.add('warp-hit');
+    
+    scoreEl.parentElement.classList.remove('glitch-active'); void scoreEl.parentElement.offsetWidth; scoreEl.parentElement.classList.add('glitch-active');
+    if(combo > 1) showComboText(e.clientX, e.clientY, `x${combo} (+${points})`, "#ffd700");
+    
+    flashEl.style.opacity = '1'; setTimeout(() => flashEl.style.opacity = '0', 100);
+    createShockwave(e.clientX, e.clientY);
+    explode(e.clientX, e.clientY, true);
+    
+    if(score % 25 === 0 && powerUps.length === 0) spawnGoldenStrawberry(); // اسپاون طلایی
+    else if(score % 15 === 0 && powerUps.length === 0) spawnCrystal(); // اسپاون کریستال
+    
+    if(score % 5 === 0) {
+        level++;
+        updateDroneIntensity();
+        updatePhaseShift();
+        strawberries.forEach(s => s.style.setProperty('--move-speed', getMoveSpeed()));
+        spawnFake(); showLevelUp();
+    }
+    moveAll();
+}
+
+function showComboText(x, y, text, color) {
+    let div = document.createElement('div'); div.className = 'combo-text'; div.innerText = text;
+    div.style.color = color; div.style.textShadow = `0 0 20px ${color}`;
+    div.style.left = (x - 30) + 'px'; div.style.top = (y - 20) + 'px';
+    game.appendChild(div); setTimeout(() => div.remove(), 800);
+}
+
+function createShockwave(x, y) {
+    let div = document.createElement('div'); div.className = 'shockwave';
+    div.style.left = x + 'px'; div.style.top = y + 'px';
+    game.appendChild(div); setTimeout(() => div.remove(), 600);
+}
+
+function showLevelUp() {
+    levelUpEl.style.transition = 'none'; levelUpEl.style.opacity = '1';
+    levelUpEl.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    setTimeout(() => { levelUpEl.style.transition = 'all 0.3s ease-out'; levelUpEl.style.transform = 'translate(-50%, -50%) scale(1)'; }, 50);
+    setTimeout(() => { levelUpEl.style.opacity = '0'; levelUpEl.style.transform = 'translate(-50%, -50%) scale(0.8)'; }, 1200);
+}
+
+function spawnFake() {
+    for(let i = 0; i < level; i++) {
+        let div = document.createElement("div"); div.className = "strawberry";
+        div.style.setProperty('--move-speed', getMoveSpeed());
+        position(div, true); div.innerHTML = strawberrySVG(); div.onclick = lose;
+        game.appendChild(div); strawberries.push(div);
+    }
+    updatePanicState();
+}
+
+function moveAll() {
+    let currentSpeed = slowMoActive ? 1.5 : Math.max(0.35, 0.8 - (level * 0.03));
+    let trailDuration = currentSpeed * 500;
+    
+    if(slowMoActive) { slowMoCharges--; if(slowMoCharges <= 0) { slowMoActive = false; strawberries.forEach(s => s.style.setProperty('--move-speed', getMoveSpeed())); } }
+    
+    strawberries.forEach(s => {
+        let oldX = s.offsetLeft + 45, oldY = s.offsetTop + 45;
+        position(s);
+        s.style.transform = `rotate(${(Math.random() - 0.5) * 40}deg)`;
+        let newX = parseFloat(s.style.left) + 45, newY = parseFloat(s.style.top) + 45;
+        s.classList.add('moving');
+        setTimeout(() => s.classList.remove('moving'), currentSpeed * 800);
+        createHalfwayTrail(oldX, oldY, newX, newY, trailDuration);
+    });
+}
+
+function createHalfwayTrail(x1, y1, x2, y2, duration) {
+    let midX = x1 + (x2 - x1) * 0.5, midY = y1 + (y2 - y1) * 0.5;
+    for(let i=0; i<3; i++) {
+        let dot = document.createElement("div"); dot.className = "trail-dot";
+        let size = 10 - (i * 3); dot.style.width = size + "px"; dot.style.height = size + "px";
+        dot.style.left = (x1 - size/2) + "px"; dot.style.top = (y1 - size/2) + "px";
+        game.appendChild(dot);
+        let delay = i * 40;
+        setTimeout(() => {
+            dot.animate([{ transform: 'translate(0, 0) scale(1)', opacity: 0.8 }, { transform: `translate(${midX - x1}px, ${midY - y1}px) scale(0)`, opacity: 0 }],{ duration: duration, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'forwards' });
+            setTimeout(() => dot.remove(), duration);
+        }, delay);
+    }
+}
+
+function lose(e) {
+    initAudio(); playBad(); combo = 0;
+    game.classList.add('shake-it'); setTimeout(() => game.classList.remove('shake-it'), 600);
+    explodeDarkMatter(e.clientX, e.clientY);
+    if(score > highScore) { highScore = score; localStorage.setItem('strawberry_hs', highScore); }
+    setTimeout(() => {
+        document.getElementById("final").textContent = score;
+        document.getElementById("go-hs").textContent = highScore;
+        document.getElementById("gameover").style.display = "flex";
+    }, 600);
+}
+
+function restart() {
+    strawberries.forEach(x => x.remove()); powerUps.forEach(x => x.remove());
+    document.querySelectorAll('.trail-dot, .shockwave, .combo-text, .particle').forEach(e => e.remove());
+    strawberries = []; powerUps = []; score = 0; level = 1; combo = 0;
+    slowMoActive = false; slowMoCharges = 0;
+    scoreEl.textContent = 0; hsEl.textContent = highScore;
+    vignetteEl.classList.remove('panic');
+    updatePhaseShift(); updateDroneIntensity();
+    document.getElementById("gameover").style.display = "none";
+    createMain();
+}
+
+function explode(x, y, isReal) {
+    let particleCount = isReal ? 20 : 12;
+    let colors = isReal ? ['#ffffff', '#ff80ab', '#ff4081', '#f50057'] : ['#b71c1c', '#880e4f', '#4a148c'];
+    for(let i = 0; i < particleCount; i++) {
+        let p = document.createElement("div"); p.className = "particle";
+        let size = Math.random() * 8 + 3; p.style.width = size + "px"; p.style.height = size + "px";
+        let color = colors[Math.floor(Math.random() * colors.length)];
+        p.style.left = (x - size/2) + "px"; p.style.top = (y - size/2) + "px";
+        let shadowColor = isReal ? '#ff0055' : '#880000';
+        p.style.boxShadow = `0 0 ${size}px ${shadowColor}`;
+        p.style.background = `radial-gradient(circle, ${color} 0%, transparent 70%)`;
+        p.style.filter = `blur(${Math.random() * 2}px)`;
+        game.appendChild(p);
+        let angle = Math.random() * Math.PI * 2, velocity = Math.random() * 150 + 50;
+        let dx = Math.cos(angle) * velocity, dy = Math.sin(angle) * velocity;
+        let duration = Math.random() * 400 + 500;
+        p.animate([{ transform: 'translate(0, 0) scale(1)', opacity: 1 }, { transform: `translate(${dx}px, ${dy + 50}px) scale(0)`, opacity: 0 }],{ duration: duration, easing: 'cubic-bezier(0, .9, .57, 1)', fill: 'forwards' });
+        setTimeout(() => p.remove(), duration);
+    }
+}
+
+function explodeDarkMatter(x, y) {
+    let ring = document.createElement('div');
+    ring.style.cssText = `position:absolute; left:${x}px; top:${y}px; width:10px; height:10px; border:2px solid #000; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:500; box-shadow: 0 0 30px black;`;
+    game.appendChild(ring);
+    ring.animate([{ width: '10px', height: '10px', opacity: 1, borderWidth: '2px' }, { width: '150px', height: '150px', opacity: 0, borderWidth: '20px' }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+    setTimeout(()=>ring.remove(), 600);
+    for(let i=0; i<15; i++) {
+        let p = document.createElement('div'); p.className = 'particle';
+        let size = Math.random()*5+2; p.style.width=size+"px"; p.style.height=size+"px";
+        let startX = x + (Math.random()-0.5)*200, startY = y + (Math.random()-0.5)*200;
+        p.style.left = startX+"px"; p.style.top = startY+"px";
+        p.style.background = 'radial-gradient(circle, #4a148c, transparent)'; p.style.boxShadow = '0 0 10px #4a148c';
+        game.appendChild(p);
+        p.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${x-startX}px, ${y-startY}px) scale(0)`, opacity: 0 }], { duration: 500, easing: 'ease-in', fill: 'forwards' });
+        setTimeout(()=>p.remove(), 500);
+    }
+}
+
+createMain();
+updatePhaseShift();
+document.addEventListener('touchstart', function(e) { if (e.touches.length > 1) e.preventDefault(); }, {passive: false});
+
+</script>
+</body>
+</html>
